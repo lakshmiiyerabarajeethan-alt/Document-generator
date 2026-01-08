@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Business Documentation Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Material UI Fonts -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+
+  <!-- Material UI Core CSS (via CDN) -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@mui/material@5.15.14/dist/mui.min.css"
+  />
+
+  <style>
+    body {
+      font-family: Roboto, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 40px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: #ffffff;
+      padding: 32px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      font-weight: 500;
+      margin-bottom: 24px;
+    }
+
+    .field {
+      margin-bottom: 20px;
+    }
+
+    .actions {
+      margin-top: 24px;
+      display: flex;
+      gap: 16px;
+    }
+
+    .downloads {
+      margin-top: 32px;
+      display: none;
+      gap: 16px;
+    }
+
+    .status {
+      margin-top: 16px;
+      color: #555;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Business Documentation Generator</h1>
+
+    <!-- Title -->
+    <div class="field">
+      <label class="MuiFormLabel-root">Title</label>
+      <input
+        id="title"
+        type="text"
+        class="MuiInputBase-input MuiOutlinedInput-input"
+        style="width: 100%; padding: 12px; margin-top: 8px;"
+        placeholder="Enter application name"
+      />
+    </div>
+
+    <!-- Multipart Upload -->
+    <div class="field">
+      <label class="MuiFormLabel-root">Upload Recorded Input</label>
+      <input
+        id="file"
+        type="file"
+        class="MuiInputBase-input"
+        style="margin-top: 8px;"
+        multiple
+      />
+    </div>
+
+    <!-- Generate Button -->
+    <div class="actions">
+      <button
+        class="MuiButton-root MuiButton-contained MuiButton-containedPrimary"
+        onclick="generateDoc()"
+      >
+        Generate
+      </button>
+    </div>
+
+    <!-- Status -->
+    <div id="status" class="status"></div>
+
+    <!-- Download Buttons -->
+    <div id="downloads" class="downloads">
+      <a id="downloadDocx" class="MuiButton-root MuiButton-outlined" href="#" download>
+        Download Word
+      </a>
+      <a id="downloadPdf" class="MuiButton-root MuiButton-outlined" href="#" download>
+        Download PDF
+      </a>
+    </div>
+  </div>
+
+  <script>
+    async function generateDoc() {
+      const title = document.getElementById("title").value;
+      const files = document.getElementById("file").files;
+      const status = document.getElementById("status");
+
+      if (!title) {
+        alert("Please enter a title");
+        return;
+      }
+
+      status.innerText = "Generating document, please wait...";
+      document.getElementById("downloads").style.display = "none";
+
+      const steps = [];
+
+for (const file of files) {
+  const text = await file.text();
+  const json = JSON.parse(text);
+
+  if (Array.isArray(json)) {
+    // file is just an array of steps
+    steps.push(...json);
+  } else if (json.steps && Array.isArray(json.steps)) {
+    // file has top-level 'steps'
+    steps.push(...json.steps);
+  } else {
+    console.warn(`File ${file.name} does not contain steps`);
+  }
+}
+
+const payload = {
+  application: title,
+  steps: steps
+};
+
+const response = await fetch("http://127.0.0.1:8000/business-doc", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload)
+});
+
+        const result = await response.json();
+
+        document.getElementById("downloadDocx").href = result.docx_file;
+        document.getElementById("downloadPdf").href = result.pdf_file;
+
+        document.getElementById("downloads").style.display = "flex";
+        status.innerText = "Document generated successfully.";
+
+      }
+    
+  </script>
+
+</body>
+</html>

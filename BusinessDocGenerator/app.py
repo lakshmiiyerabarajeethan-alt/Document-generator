@@ -11,10 +11,21 @@ from exporters.export_pdf import export_to_pdf
 import os
 from datetime import datetime
 
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI(
     title="Business Documentation Generator",
     version="1.1"
+)
+
+# Allow all origins (for local dev)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins (you can restrict in production)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
