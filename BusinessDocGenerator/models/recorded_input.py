@@ -3,5 +3,5 @@ from typing import List, Any
 
 
 class RecordedInput(BaseModel):
-    application: str = "Stockmann STEP / OPIL UI"
+    application: str = "Mirrix"
     steps: List[Any]
