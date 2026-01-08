@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Web Test Recorder MVP",
+  "version": "0.2",
+  "description": "Record browser actions into a JSON test script",
+  "permissions": ["scripting", "activeTab", "storage"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Web Test Recorder"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "selector-utils.js",
+        "recorder-state.js",
+        "content.js"
+      ],
+      "run_at": "document_end"
+    }
+  ]
+}
