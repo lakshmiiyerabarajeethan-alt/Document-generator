@@ -21,12 +21,19 @@ function getUniqueSelector(el) {
   while (node && node.nodeType === 1 && path.length < 5) {
     let selector = node.tagName.toLowerCase();
 
+    // Handle className safely (could be SVGAnimatedString for SVG elements)
     if (node.className) {
-      const cls = node.className.trim().split(/\s+/)[0];
-      selector += "." + cls;
+      let className = typeof node.className === 'string' 
+        ? node.className 
+        : node.className.baseVal || '';
+      
+      const cls = className.trim().split(/\s+/)[0];
+      if (cls) {
+        selector += "." + CSS.escape(cls);
+      }
     }
 
-    const siblings = Array.from(node.parentNode.children)
+    const siblings = Array.from(node.parentNode?.children || [])
       .filter(n => n.tagName === node.tagName);
 
     if (siblings.length > 1) {

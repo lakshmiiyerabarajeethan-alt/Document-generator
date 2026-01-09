@@ -1,47 +1,38 @@
 import json
 
-
 def build_business_doc_prompt(app_name, normalized_steps):
-
+    """
+    Prompt the LLM to create a full user guide in the exact format you expect.
+    """
     steps_json = json.dumps(normalized_steps, indent=2)
 
     return f"""
-You are a Senior QA Analyst creating a BUSINESS LEVEL functional test case.
+You are a technical writer assistant that generates high-quality user guides. Follow the structure and format exactly.
 
-The input is a normalized set of UI actions recorded from a browser session.
+### INSTRUCTIONS
+Write a user guide based on the recorded steps provided. The guide must be clear, step-by-step, and easy for non-technical users to follow.
 
-Convert these actions into a formal Business Test Case Document.
+Include screenshots where available using labels like:
+**Screenshot label (if available):** <description of the step or page>
 
-Follow these rules:
+### REQUIRED SECTIONS
+1. **Title**
+2. **1. Purpose**
+3. **2. Scope**
+4. **3. Prerequisites**
+5. **4. Steps** (include screenshots labels)
+6. **5. Troubleshooting**
+7. **6. Tips (Optional)**
+8. **7. Contact Support**
 
-- Use functional business language
-- Do not expose CSS selectors or technical details
-- Group redirects into meaningful actions
-- Treat Login and Logout as major steps
-- Mask password values
-- Every step MUST have an Expected Result
-- Keep steps concise and clear
-- Use present tense
-- Preserve traceability to source_step ids
-
-Output format MUST be:
-
-Test Name
-Business Goal
-Application
-Preconditions
-
-Test Steps (numbered)
-  - Functional Description
-  - Expected Result
-
-Postconditions
-
-Traceability Mapping
-(table mapping functional step -> source_step ids)
+### STYLE GUIDELINES
+- Use simple and direct language.
+- Number steps for clarity.
+- Include screenshot labels.
+- Maintain consistent formatting with separators like "________________________________________"
 
 Application: {app_name}
 
-Normalized Steps:
+Normalized Steps (with screenshot info):
 {steps_json}
 """

@@ -3,47 +3,74 @@ const stopBtn = document.getElementById("stopBtn");
 const downloadBtn = document.getElementById("downloadBtn");
 const status = document.getElementById("status");
 
-async function syncUI() {
-  const { recording, steps } = await chrome.storage.local.get(["recording", "steps"]);
+let recordingInProgress = false;
 
-  if (recording) {
-    status.innerText = "Recording...";
+// Initialize UI state
+chrome.storage.local.get({ recording: false }, (data) => {
+  if (data.recording) {
     startBtn.disabled = true;
     stopBtn.disabled = false;
     downloadBtn.disabled = true;
+    status.textContent = "Recording...";
   } else {
-    status.innerText = "Not recording";
     startBtn.disabled = false;
     stopBtn.disabled = true;
-    downloadBtn.disabled = !(steps && steps.length > 0);
+    downloadBtn.disabled = false;
+    status.textContent = "Ready";
   }
-}
+});
 
-syncUI();
-
+// Start recording
 startBtn.onclick = async () => {
-  await chrome.storage.local.set({
-    recording: true,
-    steps: []
+  chrome.storage.local.set({ recording: true, steps: [] }, () => {
+    if (chrome.runtime.lastError) {
+      console.error("Error starting recording:", chrome.runtime.lastError);
+      return;
+    }
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    downloadBtn.disabled = true;
+    status.textContent = "Recording...";
   });
-  await syncUI();
 };
 
+// Stop recording
 stopBtn.onclick = async () => {
-  await chrome.storage.local.set({ recording: false });
-  await syncUI();
+  chrome.storage.local.set({ recording: false }, () => {
+    if (chrome.runtime.lastError) {
+      console.error("Error stopping recording:", chrome.runtime.lastError);
+      return;
+    }
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    downloadBtn.disabled = false;
+    status.textContent = "Recording stopped. Ready to download.";
+  });
 };
 
+// Download JSON
 downloadBtn.onclick = async () => {
-  const { steps } = await chrome.storage.local.get("steps");
+  // Check if any recording is in progress
+  const result = await chrome.storage.local.get({ recordingInProgress: false });
+  if (result.recordingInProgress) {
+    alert("Please wait, steps are still being saved.");
+    return;
+  }
 
-  const blob = new Blob([JSON.stringify(steps, null, 2)], {
-    type: "application/json"
+  const steps = await new Promise((resolve) => {
+    chrome.storage.local.get({ steps: [] }, (data) => resolve(data.steps || []));
   });
 
+  if (!steps || steps.length === 0) {
+    alert("No steps recorded yet!");
+    return;
+  }
+
+  const blob = new Blob([JSON.stringify(steps, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = "recorded_test.json";
   a.click();
+  URL.revokeObjectURL(url);
 };

@@ -4,77 +4,84 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-
-async def call_llm(prompt: str):
-
-    if not OPENAI_API_KEY:
+async def call_llm(prompt: str) -> str:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
         raise RuntimeError("OPENAI_API_KEY not set")
 
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=90) as client:
         response = await client.post(
             "https://api.openai.com/v1/chat/completions",
             headers={
-                "Authorization": f"Bearer {OPENAI_API_KEY}"
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
             },
             json={
                 "model": "gpt-4.1-mini",
+                "temperature": 0.4,
                 "messages": [
                     {
                         "role": "system",
-                        "content": f"""
-You are a Product Documentation Specialist writing an END-USER CUSTOMER GUIDE.
+                        "content": """
+You are a technical writer assistant that generates high-quality user guides. Follow the structure and format below exactly.
 
-Write a user guide in MARKDOWN that matches the writing style, tone, and level of detail of a professional SaaS product help document.
+### INSTRUCTIONS
+Write a user guide based on the topic I provide. The guide must be clear, step-by-step, and easy for non-technical users to follow.
 
-The guide should:
-- Be written for customers and non-technical end users
-- Explain how to use the product step by step
-- Describe every user action clearly and sequentially
-- Explain what the user should click, enter, or select
-- Explain what the user should see after each action
-- Focus on how the product is used, not how it is built
+### REQUIRED SECTIONS
+1. **Title**
+   - Write a clear descriptive title of the user guide.
 
-Writing Style Requirements:
-- Clear, instructional, and business-friendly
-- Step-based explanations using “Step X:” headings
-- Short paragraphs under each step
-- Use bullet points and numbered sub-steps where helpful
-- Neutral, professional tone (no marketing language)
-- Assume the user is accessing the product via a web browser
+2. **1. Purpose**
+   - Explain in 1–2 sentences why this guide exists and what it helps the user accomplish.
 
-Formatting Requirements:
-- Output must be valid MARKDOWN
-- Use headings and subheadings naturally where appropriate
-- Use horizontal separators (---) to divide major sections
-- Include Markdown image placeholders under relevant steps using:
-  ![Descriptive image text](image-url-placeholder)
-- Do not include code blocks, APIs, or technical architecture
-- Do not mention internal systems or backend behavior
+3. **2. Scope**
+   - Describe who can use this guide and in what situations.
 
-Content Expectations:
-- Start with a brief introduction explaining what the guide covers
-- Cover the full end-to-end user journey
-- Include login/access steps if applicable
-- Include step-by-step instructions for key user actions
-- Include verification steps so users know when an action is successful
-- Include optional steps where applicable (clearly marked)
-- End with a short summary of what the user can accomplish
+4. **3. Prerequisites**
+   - List all things the user must have or know before starting (requirements, tools, permissions, etc.).
+   - Format as bullet points.
 
-The final output should read like an official product user guide that could be published directly to a customer documentation portal.
+5. **4. Steps**
+   - Break down the process into major steps.
+   - For each step:
+     - Provide a Step heading (e.g., "Step X – Description").
+     - Provide ordered sub-steps.
+     - Include examples, screenshots labels, or prompts where appropriate.
+     - Use the same formatting style as the example (numbered lists, indented examples).
 
+6. **5. Troubleshooting**
+   - Create a table with common issues and solutions.
+   - Include at least 3 rows.
 
-      
+7. **6. Tips (Optional)**
+   - Provide practical tips, best practices, or warnings related to the task.
+   - List as bullet points.
+
+8. **7. Contact Support**
+   - Provide information on where to get help if steps fail.
+   - Include links or search terms for official support where relevant.
+
+### STYLE GUIDELINES
+• Use simple and direct language.  
+• Use numbered steps for clarity.  
+• Keep each step concise but complete.  
+• Maintain consistent formatting with separators like "________________________________________" between major sections.
 """
                     },
                     {
                         "role": "user",
                         "content": prompt
                     }
-                ]
-            }
+                ],
+            },
         )
+
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"LLM request failed ({response.status_code}): {response.text}"
+            )
 
         data = response.json()
         return data["choices"][0]["message"]["content"]
