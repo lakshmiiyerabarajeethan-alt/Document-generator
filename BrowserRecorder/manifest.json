@@ -1,10 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Web Test Recorder MVP",
-  "version": "0.5",
+  "version": "0.3",
   "description": "Record browser actions into a JSON test script",
-  "permissions": ["scripting", "activeTab", "storage", "tabs", "downloads"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": [
+    "scripting",
+    "activeTab",
+    "storage",
+    "downloads"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Web Test Recorder"
@@ -15,7 +19,11 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["selector-utils.js", "recorder-state.js", "content.js"],
+      "js": [
+        "selector-utils.js",
+        "recorder-state.js",
+        "content.js"
+      ],
       "run_at": "document_end"
     }
   ]
