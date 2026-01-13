@@ -68,6 +68,15 @@
       background-color: #0b7dda;
     }
     
+    #downloadScreenshotsBtn {
+      background-color: #9C27B0;
+      color: white;
+    }
+    
+    #downloadScreenshotsBtn:hover:not(:disabled) {
+      background-color: #7B1FA2;
+    }
+    
     #debugBtn {
       background-color: #FF9800;
       color: white;
@@ -111,6 +120,7 @@
   <button id="startBtn">Start Recording</button>
   <button id="stopBtn" disabled>Stop Recording</button>
   <button id="downloadBtn" disabled>Download JSON</button>
+  <button id="downloadScreenshotsBtn" disabled>Download Screenshots</button>
   <button id="debugBtn">Show Debug Info</button>
   
   <div id="debugInfo"></div>

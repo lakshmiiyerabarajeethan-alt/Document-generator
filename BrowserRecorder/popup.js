@@ -1,6 +1,7 @@
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const downloadBtn = document.getElementById("downloadBtn");
+const downloadScreenshotsBtn = document.getElementById("downloadScreenshotsBtn");
 const debugBtn = document.getElementById("debugBtn");
 const status = document.getElementById("status");
 const debugInfo = document.getElementById("debugInfo");
@@ -8,7 +9,7 @@ const debugInfo = document.getElementById("debugInfo");
 let debugVisible = false;
 
 async function syncUI() {
-  const { recording, steps } = await chrome.storage.local.get(["recording", "steps"]);
+  const { recording, steps, screenshots } = await chrome.storage.local.get(["recording", "steps", "screenshots"]);
 
   if (recording) {
     status.innerText = "Recording...";
@@ -16,17 +17,21 @@ async function syncUI() {
     startBtn.disabled = true;
     stopBtn.disabled = false;
     downloadBtn.disabled = true;
+    downloadScreenshotsBtn.disabled = true;
   } else {
     status.classList.remove("recording");
     startBtn.disabled = false;
     stopBtn.disabled = true;
     
-    // Enable download button only if steps exist
+    // Enable download buttons only if data exists
     const hasSteps = steps && steps.length > 0;
+    const hasScreenshots = screenshots && screenshots.length > 0;
+    
     downloadBtn.disabled = !hasSteps;
+    downloadScreenshotsBtn.disabled = !hasScreenshots;
     
     if (hasSteps) {
-      status.innerText = `Ready to download (${steps.length} steps)`;
+      status.innerText = `Ready (${steps.length} steps, ${hasScreenshots ? screenshots.length : 0} screenshots)`;
     } else {
       status.innerText = "Not recording";
     }
@@ -34,13 +39,19 @@ async function syncUI() {
 }
 
 async function showDebugInfo() {
-  const { recording, steps } = await chrome.storage.local.get(["recording", "steps"]);
+  const { recording, steps, screenshots } = await chrome.storage.local.get(["recording", "steps", "screenshots"]);
   
   const info = {
     recording: recording,
     stepCount: steps ? steps.length : 0,
-    steps: steps ? steps.slice(0, 3) : [], // Show first 3 steps
-    storage: await chrome.storage.local.get(null)
+    screenshotCount: screenshots ? screenshots.length : 0,
+    steps: steps ? steps.slice(0, 3) : [],
+    screenshots: screenshots ? screenshots.slice(0, 2).map(s => ({
+      id: s.id,
+      filename: s.filename,
+      timestamp: s.timestamp,
+      dataUrlLength: s.dataUrl?.length || 0
+    })) : []
   };
   
   debugInfo.innerHTML = `<pre>${JSON.stringify(info, null, 2)}</pre>`;
@@ -56,7 +67,8 @@ startBtn.onclick = async () => {
   console.log("Starting recording...");
   await chrome.storage.local.set({
     recording: true,
-    steps: []
+    steps: [],
+    screenshots: []
   });
   await syncUI();
   console.log("Recording started");
@@ -66,8 +78,8 @@ startBtn.onclick = async () => {
 stopBtn.onclick = async () => {
   console.log("Stopping recording...");
   await chrome.storage.local.set({ recording: false });
-  const { steps } = await chrome.storage.local.get("steps");
-  console.log(`Recording stopped. Total steps: ${steps ? steps.length : 0}`);
+  const { steps, screenshots } = await chrome.storage.local.get(["steps", "screenshots"]);
+  console.log(`Recording stopped. Steps: ${steps?.length || 0}, Screenshots: ${screenshots?.length || 0}`);
   await syncUI();
 };
 
@@ -76,10 +88,8 @@ downloadBtn.onclick = async () => {
   try {
     console.log("Download button clicked");
     
-    // Get steps from storage
-    const { steps } = await chrome.storage.local.get("steps");
+    const { steps, screenshots } = await chrome.storage.local.get(["steps", "screenshots"]);
     
-    // Validate steps
     if (!steps || steps.length === 0) {
       console.error("No steps found in storage");
       alert("No steps recorded. Please record some actions first.");
@@ -88,27 +98,46 @@ downloadBtn.onclick = async () => {
     
     console.log(`Preparing to download ${steps.length} steps`);
     
-    // Create JSON string with pretty formatting
-    const jsonString = JSON.stringify(steps, null, 2);
+    // Add screenshot references to steps
+    const stepsWithScreenshots = steps.map(step => {
+      const screenshot = screenshots?.find(s => s.id === step.id);
+      if (screenshot) {
+        return {
+          ...step,
+          screenshot: screenshot.filename,
+          screenshotUrl: screenshot.dataUrl?.substring(0, 100) + '...' // Truncate for JSON size
+        };
+      }
+      return step;
+    });
+    
+    // Create JSON with metadata
+    const exportData = {
+      metadata: {
+        recordedAt: new Date().toISOString(),
+        totalSteps: steps.length,
+        totalScreenshots: screenshots?.length || 0,
+        browser: navigator.userAgent
+      },
+      steps: stepsWithScreenshots
+    };
+    
+    const jsonString = JSON.stringify(exportData, null, 2);
     console.log("JSON size:", jsonString.length, "bytes");
     
-    // Create blob
     const blob = new Blob([jsonString], {
       type: "application/json"
     });
     console.log("Blob created:", blob.size, "bytes");
 
-    // Create object URL
     const url = URL.createObjectURL(blob);
     console.log("Object URL created:", url);
     
-    // Generate filename with timestamp
     const now = new Date();
     const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
     const filename = `recorded_test_${timestamp}.json`;
     console.log("Filename:", filename);
     
-    // Try chrome.downloads API first (requires downloads permission)
     if (chrome.downloads && chrome.downloads.download) {
       console.log("Using chrome.downloads API");
       chrome.downloads.download({
@@ -118,7 +147,6 @@ downloadBtn.onclick = async () => {
       }, (downloadId) => {
         if (chrome.runtime.lastError) {
           console.error("chrome.downloads error:", chrome.runtime.lastError);
-          // Fallback to anchor method
           downloadWithAnchor(url, filename);
         } else {
           console.log("Download started successfully. ID:", downloadId);
@@ -126,7 +154,6 @@ downloadBtn.onclick = async () => {
         }
       });
     } else {
-      // Fallback to anchor element method
       console.log("chrome.downloads not available, using anchor method");
       downloadWithAnchor(url, filename);
     }
@@ -137,26 +164,56 @@ downloadBtn.onclick = async () => {
   }
 };
 
-// Fallback download method using anchor element
+// Download Screenshots
+downloadScreenshotsBtn.onclick = async () => {
+  try {
+    const { screenshots } = await chrome.storage.local.get("screenshots");
+    
+    if (!screenshots || screenshots.length === 0) {
+      alert("No screenshots captured. Make sure recording captured screenshots.");
+      return;
+    }
+    
+    console.log(`Downloading ${screenshots.length} screenshots...`);
+    
+    // Ask user to select download location
+    const downloadPath = "screenshots"; // This will create a screenshots folder in Downloads
+    
+    // Send message to background script to handle downloads
+    chrome.runtime.sendMessage({
+      action: 'downloadScreenshots',
+      screenshots: screenshots,
+      downloadPath: 'screenshots'
+    }, (response) => {
+      if (response?.success) {
+        alert(`✅ Successfully downloading ${screenshots.length} screenshots!\n\nThey will be saved to your Downloads/screenshots folder.`);
+      } else {
+        alert("Error downloading screenshots. Check console for details.");
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error downloading screenshots:", error);
+    alert(`Error: ${error.message}`);
+  }
+};
+
+// Fallback download method
 function downloadWithAnchor(url, filename) {
   console.log("Using anchor download method");
   
   try {
-    // Create anchor element
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     a.style.display = "none";
     
-    // Add to document
     document.body.appendChild(a);
     console.log("Anchor element created and added to DOM");
     
-    // Trigger click
     a.click();
     console.log("Anchor clicked");
     
-    // Cleanup after a short delay
     setTimeout(() => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
@@ -174,7 +231,7 @@ function downloadWithAnchor(url, filename) {
 // Debug button
 debugBtn.onclick = showDebugInfo;
 
-// Listen for storage changes to update UI automatically
+// Listen for storage changes
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local") {
     console.log("Storage changed:", changes);
