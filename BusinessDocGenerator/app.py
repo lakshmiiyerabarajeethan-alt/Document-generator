@@ -5,9 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from models.recorded_input import RecordedInput
 from normalizer import normalize_steps_with_grouping
 from doc_prompt import build_business_doc_prompt
-from llm_client import call_llm
-from exporters.export_docx import export_to_docx
-from exporters.export_pdf import export_to_pdf
+from llm_client import call_llm                      # now returns dict
+from exporters.export_docx import export_to_docx     # takes dict
+from exporters.export_pdf import export_to_pdf       # takes dict
 
 import os
 from datetime import datetime
@@ -84,8 +84,8 @@ async def generate_user_guide(data: RecordedInput):
             [step.dict() for step in data.steps]
         )
 
-        normalized = analysis["normalized_steps"]
-        workflow_type = analysis["workflow_type"]
+        normalized     = analysis["normalized_steps"]
+        workflow_type  = analysis["workflow_type"]
         logical_groups = analysis["logical_groups"]
 
         # ------------------------------------------
@@ -97,9 +97,9 @@ async def generate_user_guide(data: RecordedInput):
         )
 
         # ------------------------------------------
-        # Call LLM
+        # Call LLM → returns structured guide dict
         # ------------------------------------------
-        user_guide = await call_llm(prompt)
+        guide_data = await call_llm(prompt)
 
         # ------------------------------------------
         # Export files
@@ -108,28 +108,24 @@ async def generate_user_guide(data: RecordedInput):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         docx_file = f"{EXPORT_DIR}/{timestamp}_user_guide.docx"
-        pdf_file = f"{EXPORT_DIR}/{timestamp}_user_guide.pdf"
-        md_file = f"{EXPORT_DIR}/{timestamp}_user_guide.md"
+        pdf_file  = f"{EXPORT_DIR}/{timestamp}_user_guide.pdf"
 
-        with open(md_file, "w", encoding="utf-8") as f:
-            f.write(user_guide)
-
-        export_to_docx(user_guide, docx_file)
-        export_to_pdf(user_guide, pdf_file)
+        # Both exporters receive the same guide dict
+        export_to_docx(guide_data, docx_file)
+        export_to_pdf(guide_data, pdf_file)
 
         return {
             "success": True,
             "application": app_name,
             "workflow_type": workflow_type,
             "analysis": {
-                "total_steps": analysis["total_steps"],
-                "step_counts": analysis["step_counts"],
+                "total_steps":    analysis["total_steps"],
+                "step_counts":    analysis["step_counts"],
                 "logical_groups": len(logical_groups)
             },
             "exports": {
-                "markdown": md_file,
                 "docx": docx_file,
-                "pdf": pdf_file
+                "pdf":  pdf_file
             }
         }
 
@@ -141,8 +137,8 @@ async def generate_user_guide(data: RecordedInput):
         raise HTTPException(
             status_code=500,
             detail={
-                "error": str(e),
-                "type": type(e).__name__,
+                "error":     str(e),
+                "type":      type(e).__name__,
                 "traceback": error_details
             }
         )
@@ -172,7 +168,7 @@ async def download_file(filename: str):
     media_type = (
         "application/pdf"
         if filename.lower().endswith(".pdf")
-        else "application/octet-stream"
+        else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
     return FileResponse(
@@ -195,10 +191,10 @@ async def list_exports():
         file_path = os.path.join(EXPORT_DIR, filename)
         files.append({
             "filename": filename,
-            "size": os.path.getsize(file_path),
-            "created": datetime.fromtimestamp(
-                os.path.getctime(file_path)
-            ).isoformat()
+            "size":     os.path.getsize(file_path),
+            "created":  datetime.fromtimestamp(
+                            os.path.getctime(file_path)
+                        ).isoformat()
         })
 
     return {"files": files}

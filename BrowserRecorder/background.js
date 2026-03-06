@@ -109,3 +109,11 @@ async function downloadAllScreenshots(screenshots, basePath = 'screenshots') {
 
   console.log("✅ Screenshot download completed");
 }
+
+// Return the sender's tab ID so content.js can verify it's the recording tab
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "getTabId") {
+    sendResponse({ tabId: sender.tab?.id });
+    return true;
+  }
+});

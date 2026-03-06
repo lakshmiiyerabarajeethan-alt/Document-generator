@@ -391,7 +391,7 @@
           steps: steps
         };
 
-        const response = await fetch("http://127.0.0.1:8000/business-doc", {
+        const response = await fetch("http://127.0.0.1:8002/business-doc", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
@@ -412,8 +412,8 @@
           throw new Error("Missing export filenames from API response");
         }
 
-        document.getElementById("downloadDocx").href = `http://127.0.0.1:8000/download/${docxName}`;
-        document.getElementById("downloadPdf").href = `http://127.0.0.1:8000/download/${pdfName}`;
+        document.getElementById("downloadDocx").href = `http://127.0.0.1:8002/download/${docxName}`;
+        document.getElementById("downloadPdf").href = `http://127.0.0.1:8002/download/${pdfName}`;
 
         document.getElementById("downloads").style.display = "flex";
         statusText.innerText = "Document generated successfully.";
